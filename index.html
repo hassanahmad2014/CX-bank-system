@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>CX Bank System</title>
+<style>
+body { margin:0; font-family:Arial; background:white; }
+header { background:#0b1f3a; color:white; padding:20px; text-align:center; font-size:24px; }
+.card { background:#f4f4f4; padding:20px; margin:20px auto; width:500px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.15); text-align:center;}
+input,select,textarea{width:90%;padding:8px;margin:6px;border-radius:6px;border:1px solid #ccc;}
+button{background:#0b1f3a;color:white;padding:8px 14px;margin:6px;border-radius:6px;border:none;cursor:pointer;}
+button:hover{background:black;}
+.hidden{display:none;}
+.chat-box{height:150px;overflow-y:auto;background:white;border:1px solid #ccc;padding:5px;text-align:left;}
+</style>
+</head>
+<body>
+
+<header>💳 CX Bank System</header>
+
+<div id="loginCard" class="card">
+<h2>Login</h2>
+<input id="username" placeholder="Username">
+<input type="password" id="password" placeholder="Password">
+<button onclick="login()">Login</button>
+</div>
+
+<div id="userCard" class="card hidden">
+<h2>Welcome <span id="displayUser"></span></h2>
+<p>Digital CX: <span id="digitalBalance"></span></p>
+<p>Paper CX: <span id="paperBalance"></span></p>
+<p>KD: <span id="kdBalance"></span></p>
+<button onclick="openTransfer()">Transfer</button>
+<button onclick="openConvert()">Convert to KD</button>
+<button onclick="openMarket()">Marketplace</button>
+<button onclick="openChat()">Chat</button>
+<button onclick="logout()">Logout</button>
+</div>
+
+<div id="transferCard" class="card hidden">
+<h2>Transfer</h2>
+<input type="number" id="transferAmount" placeholder="Amount">
+<button onclick="digitalToPaper()">Digital → Paper</button>
+<button onclick="paperToDigital()">Paper → Digital</button>
+<button onclick="back()">Back</button>
+</div>
+
+<div id="convertCard" class="card hidden">
+<h2>Convert CX → KD</h2>
+<input type="number" id="convertAmount" placeholder="Amount">
+<select id="convertType">
+<option value="digital">Digital</option>
+<option value="paper">Paper</option>
+</select>
+<button onclick="convertToKD()">Convert</button>
+<button onclick="back()">Back</button>
+</div>
+
+<div id="marketCard" class="card hidden">
+<h2>Marketplace</h2>
+<input id="itemName" placeholder="Item name">
+<textarea id="itemDesc" placeholder="Description"></textarea>
+<input type="number" id="itemPrice" placeholder="Price">
+<button onclick="postItem()">Post Item</button>
+<hr>
+<div id="marketList"></div>
+<button onclick="back()">Back</button>
+</div>
+
+<div id="chatCard" class="card hidden">
+<h2>Chat</h2>
+<div id="chatBox" class="chat-box"></div>
+<input id="chatInput" placeholder="Message">
+<button onclick="sendMessage()">Send</button>
+<button onclick="back()">Back</button>
+</div>
+
+<div id="adminCard" class="card hidden">
+<h2>Admin Panel</h2>
+
+<h3>Create User</h3>
+<input id="newUser" placeholder="Username">
+<input id="newPass" placeholder="Password">
+<button onclick="createUser()">Create</button>
+
+<h3>Manage CX</h3>
+<select id="userSelect"></select>
+<input type="number" id="adminAmount" placeholder="Amount">
+<select id="adminType">
+<option value="digital">Digital</option>
+<option value="paper">Paper</option>
+<option value="kd">KD</option>
+</select>
+<button onclick="addCX()">Add</button>
+<button onclick="removeCX()">Remove</button>
+
+<h3>Transactions</h3>
+<div id="logBox" class="chat-box"></div>
+<button onclick="clearLogs()">Clear Logs</button>
+
+<button onclick="logout()">Logout</button>
+</div>
+
+<script>
+let currentUser=null;
+
+if(!localStorage.getItem("admin")){
+localStorage.setItem("admin",JSON.stringify({password:"hassan2014",digital:0,paper:0,kd:0}));
+}
+if(!localStorage.getItem("market")) localStorage.setItem("market",JSON.stringify([]));
+if(!localStorage.getItem("chat")) localStorage.setItem("chat",JSON.stringify([]));
+if(!localStorage.getItem("logs")) localStorage.setItem("logs",JSON.stringify([]));
+
+function login(){
+let u=username.value;
+let p=password.value;
+let user=JSON.parse(localStorage.getItem(u));
+if(!user) return alert("User not found");
+if(user.password!==p) return alert("Wrong password");
+currentUser=u;
+loginCard.classList.add("hidden");
+if(u==="admin"){ adminCard.classList.remove("hidden"); loadUsers(); loadLogs();}
+else{ userCard.classList.remove("hidden"); displayUser.innerText=u; updateBalances();}
+}
+
+function updateBalances(){
+let u=JSON.parse(localStorage.getItem(currentUser));
+digitalBalance.innerText=u.digital;
+paperBalance.innerText=u.paper;
+kdBalance.innerText=u.kd;
+}
+
+function createUser(){
+if(localStorage.getItem(newUser.value)) return alert("User exists");
+localStorage.setItem(newUser.value,JSON.stringify({password:newPass.value,digital:0,paper:0,kd:0}));
+alert("Created");
+loadUsers();
+}
+
+function loadUsers(){
+userSelect.innerHTML="";
+for(let i=0;i<localStorage.length;i++){
+let key=localStorage.key(i);
+if(key!=="market" && key!=="chat" && key!=="logs"){
+userSelect.innerHTML+=`<option>${key}</option>`;
+}}
+}
+
+function addCX(){
+let u=userSelect.value;
+let amt=parseFloat(adminAmount.value);
+let type=adminType.value;
+let user=JSON.parse(localStorage.getItem(u));
+user[type]+=amt;
+localStorage.setItem(u,JSON.stringify(user));
+log(`Admin added ${amt} ${type} to ${u}`);
+loadLogs();
+}
+
+function removeCX(){
+let u=userSelect.value;
+let amt=parseFloat(adminAmount.value);
+let type=adminType.value;
+let user=JSON.parse(localStorage.getItem(u));
+if(user[type]<amt) return alert("Not enough balance");
+user[type]-=amt;
+localStorage.setItem(u,JSON.stringify(user));
+log(`Admin removed ${amt} ${type} from ${u}`);
+loadLogs();
+}
+
+function postItem(){
+let market=JSON.parse(localStorage.getItem("market"));
+market.push({seller:currentUser,name:itemName.value,desc:itemDesc.value,price:parseFloat(itemPrice.value)});
+localStorage.setItem("market",JSON.stringify(market));
+log(`${currentUser} posted item ${itemName.value}`);
+loadMarket();
+}
+
+function loadMarket(){
+let market=JSON.parse(localStorage.getItem("market"));
+marketList.innerHTML="";
+market.forEach((item,i)=>{
+marketList.innerHTML+=`
+<div>
+<b>${item.name}</b><br>
+${item.desc}<br>
+Price: ${item.price}<br>
+<select id="buyType${i}">
+<option value="digital">Digital</option>
+<option value="paper">Paper</option>
+</select>
+<button onclick="buyItem(${i})">Buy</button>
+<hr>
+</div>`;
+});
+}
+
+function buyItem(i){
+let market=JSON.parse(localStorage.getItem("market"));
+let item=market[i];
+let type=document.getElementById("buyType"+i).value;
+let buyer=JSON.parse(localStorage.getItem(currentUser));
+if(buyer[type]<item.price) return alert("Not enough balance");
+buyer[type]-=item.price;
+localStorage.setItem(currentUser,JSON.stringify(buyer));
+let seller=JSON.parse(localStorage.getItem(item.seller));
+seller[type]+=item.price;
+localStorage.setItem(item.seller,JSON.stringify(seller));
+market.splice(i,1);
+localStorage.setItem("market",JSON.stringify(market));
+log(`${currentUser} bought ${item.name} from ${item.seller}`);
+loadMarket();
+updateBalances();
+}
+
+function openMarket(){ userCard.classList.add("hidden"); marketCard.classList.remove("hidden"); loadMarket();}
+function openTransfer(){ userCard.classList.add("hidden"); transferCard.classList.remove("hidden");}
+function openConvert(){ userCard.classList.add("hidden"); convertCard.classList.remove("hidden");}
+function openChat(){ userCard.classList.add("hidden"); chatCard.classList.remove("hidden"); loadChat();}
+function back(){ transferCard.classList.add("hidden"); convertCard.classList.add("hidden"); marketCard.classList.add("hidden"); chatCard.classList.add("hidden"); userCard.classList.remove("hidden");}
+
+function digitalToPaper(){
+let amt=parseFloat(transferAmount.value);
+let u=JSON.parse(localStorage.getItem(currentUser));
+if(u.digital<amt) return alert("Not enough");
+u.digital-=amt; u.paper+=amt;
+localStorage.setItem(currentUser,JSON.stringify(u));
+updateBalances();
+log(`${currentUser} transferred digital→paper`);
+}
+
+function paperToDigital(){
+let amt=parseFloat(transferAmount.value);
+let u=JSON.parse(localStorage.getItem(currentUser));
+if(u.paper<amt) return alert("Not enough");
+u.paper-=amt; u.digital+=amt;
+localStorage.setItem(currentUser,JSON.stringify(u));
+updateBalances();
+log(`${currentUser} transferred paper→digital`);
+}
+
+function convertToKD(){
+let amt=parseFloat(convertAmount.value);
+let type=convertType.value;
+let u=JSON.parse(localStorage.getItem(currentUser));
+if(u[type]<amt) return alert("Not enough");
+u[type]-=amt; u.kd+=amt;
+localStorage.setItem(currentUser,JSON.stringify(u));
+updateBalances();
+log(`${currentUser} converted to KD`);
+}
+
+function sendMessage(){
+let chat=JSON.parse(localStorage.getItem("chat"));
+chat.push(`${currentUser}: ${chatInput.value}`);
+localStorage.setItem("chat",JSON.stringify(chat));
+chatInput.value="";
+loadChat();
+}
+
+function loadChat(){
+let chat=JSON.parse(localStorage.getItem("chat"));
+chatBox.innerHTML=chat.join("<br>");
+}
+
+function log(msg){
+let logs=JSON.parse(localStorage.getItem("logs"));
+logs.push(msg);
+localStorage.setItem("logs",JSON.stringify(logs));
+}
+
+function loadLogs(){
+let logs=JSON.parse(localStorage.getItem("logs"));
+logBox.innerHTML=logs.join("<br>");
+}
+
+function clearLogs(){
+localStorage.setItem("logs",JSON.stringify([]));
+loadLogs();
+}
+
+function logout(){ location.reload(); }
+</script>
+</body>
+</html>
