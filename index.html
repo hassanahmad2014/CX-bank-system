@@ -18,6 +18,7 @@ button:hover{background:black;}
 
 <header>💳 CX Bank System</header>
 
+<!-- LOGIN -->
 <div id="loginCard" class="card">
 <h2>Login</h2>
 <input id="username" placeholder="Username">
@@ -25,6 +26,7 @@ button:hover{background:black;}
 <button onclick="login()">Login</button>
 </div>
 
+<!-- USER DASHBOARD -->
 <div id="userCard" class="card hidden">
 <h2>Welcome <span id="displayUser"></span></h2>
 <p>Digital CX: <span id="digitalBalance"></span></p>
@@ -37,6 +39,7 @@ button:hover{background:black;}
 <button onclick="logout()">Logout</button>
 </div>
 
+<!-- TRANSFER -->
 <div id="transferCard" class="card hidden">
 <h2>Transfer</h2>
 <input type="number" id="transferAmount" placeholder="Amount">
@@ -45,6 +48,7 @@ button:hover{background:black;}
 <button onclick="back()">Back</button>
 </div>
 
+<!-- CONVERT -->
 <div id="convertCard" class="card hidden">
 <h2>Convert CX → KD</h2>
 <input type="number" id="convertAmount" placeholder="Amount">
@@ -56,6 +60,7 @@ button:hover{background:black;}
 <button onclick="back()">Back</button>
 </div>
 
+<!-- MARKETPLACE -->
 <div id="marketCard" class="card hidden">
 <h2>Marketplace</h2>
 <input id="itemName" placeholder="Item name">
@@ -67,6 +72,7 @@ button:hover{background:black;}
 <button onclick="back()">Back</button>
 </div>
 
+<!-- CHAT -->
 <div id="chatCard" class="card hidden">
 <h2>Chat</h2>
 <div id="chatBox" class="chat-box"></div>
@@ -75,6 +81,7 @@ button:hover{background:black;}
 <button onclick="back()">Back</button>
 </div>
 
+<!-- ADMIN PANEL -->
 <div id="adminCard" class="card hidden">
 <h2>Admin Panel</h2>
 
@@ -94,9 +101,26 @@ button:hover{background:black;}
 <button onclick="addCX()">Add</button>
 <button onclick="removeCX()">Remove</button>
 
-<h3>Transactions</h3>
+<h3>Chat & Marketplace Controls</h3>
+<div>
+<h4>Chat</h4>
+<div id="adminChatBox" class="chat-box"></div>
+<input id="adminChatInput" placeholder="Message">
+<button onclick="adminSendMessage()">Send</button>
+<button onclick="deleteSelectedMessage()">Delete Selected Message</button>
+
+<h4>Marketplace</h4>
+<div id="adminMarketList"></div>
+<button onclick="deleteSelectedItem()">Delete Selected Item</button>
+
+<h4>Transactions</h4>
 <div id="logBox" class="chat-box"></div>
 <button onclick="clearLogs()">Clear Logs</button>
+
+<h4>Co-Admin</h4>
+<select id="coAdminSelect"></select>
+<button onclick="makeCoAdmin()">Make Co-Admin</button>
+</div>
 
 <button onclick="logout()">Logout</button>
 </div>
@@ -104,6 +128,7 @@ button:hover{background:black;}
 <script>
 let currentUser=null;
 
+// Initial setup
 if(!localStorage.getItem("admin")){
 localStorage.setItem("admin",JSON.stringify({password:"hassan2014",digital:0,paper:0,kd:0}));
 }
@@ -119,10 +144,17 @@ if(!user) return alert("User not found");
 if(user.password!==p) return alert("Wrong password");
 currentUser=u;
 loginCard.classList.add("hidden");
-if(u==="admin"){ adminCard.classList.remove("hidden"); loadUsers(); loadLogs();}
-else{ userCard.classList.remove("hidden"); displayUser.innerText=u; updateBalances();}
+if(u==="admin"){ 
+    adminCard.classList.remove("hidden"); 
+    loadUsers(); loadLogs(); loadAdminChat(); loadAdminMarket(); loadCoAdminSelect();
+}else{ 
+    userCard.classList.remove("hidden"); 
+    displayUser.innerText=u; 
+    updateBalances();
+}
 }
 
+// BALANCE UPDATE
 function updateBalances(){
 let u=JSON.parse(localStorage.getItem(currentUser));
 digitalBalance.innerText=u.digital;
@@ -130,6 +162,7 @@ paperBalance.innerText=u.paper;
 kdBalance.innerText=u.kd;
 }
 
+// CREATE USER
 function createUser(){
 if(localStorage.getItem(newUser.value)) return alert("User exists");
 localStorage.setItem(newUser.value,JSON.stringify({password:newPass.value,digital:0,paper:0,kd:0}));
@@ -137,6 +170,7 @@ alert("Created");
 loadUsers();
 }
 
+// LOAD USERS
 function loadUsers(){
 userSelect.innerHTML="";
 for(let i=0;i<localStorage.length;i++){
@@ -146,6 +180,7 @@ userSelect.innerHTML+=`<option>${key}</option>`;
 }}
 }
 
+// ADD/REMOVE CX
 function addCX(){
 let u=userSelect.value;
 let amt=parseFloat(adminAmount.value);
@@ -169,6 +204,7 @@ log(`Admin removed ${amt} ${type} from ${u}`);
 loadLogs();
 }
 
+// MARKETPLACE
 function postItem(){
 let market=JSON.parse(localStorage.getItem("market"));
 market.push({seller:currentUser,name:itemName.value,desc:itemDesc.value,price:parseFloat(itemPrice.value)});
@@ -186,10 +222,7 @@ marketList.innerHTML+=`
 <b>${item.name}</b><br>
 ${item.desc}<br>
 Price: ${item.price}<br>
-<select id="buyType${i}">
-<option value="digital">Digital</option>
-<option value="paper">Paper</option>
-</select>
+<select id="buyType${i}"><option value="digital">Digital</option><option value="paper">Paper</option></select>
 <button onclick="buyItem(${i})">Buy</button>
 <hr>
 </div>`;
@@ -214,72 +247,41 @@ loadMarket();
 updateBalances();
 }
 
+// OPEN/TRANSFER/CONVERT/CHAT
 function openMarket(){ userCard.classList.add("hidden"); marketCard.classList.remove("hidden"); loadMarket();}
 function openTransfer(){ userCard.classList.add("hidden"); transferCard.classList.remove("hidden");}
 function openConvert(){ userCard.classList.add("hidden"); convertCard.classList.remove("hidden");}
 function openChat(){ userCard.classList.add("hidden"); chatCard.classList.remove("hidden"); loadChat();}
 function back(){ transferCard.classList.add("hidden"); convertCard.classList.add("hidden"); marketCard.classList.add("hidden"); chatCard.classList.add("hidden"); userCard.classList.remove("hidden");}
 
-function digitalToPaper(){
-let amt=parseFloat(transferAmount.value);
-let u=JSON.parse(localStorage.getItem(currentUser));
-if(u.digital<amt) return alert("Not enough");
-u.digital-=amt; u.paper+=amt;
-localStorage.setItem(currentUser,JSON.stringify(u));
-updateBalances();
-log(`${currentUser} transferred digital→paper`);
-}
+// TRANSFER
+function digitalToPaper(){ let amt=parseFloat(transferAmount.value); let u=JSON.parse(localStorage.getItem(currentUser)); if(u.digital<amt) return alert("Not enough"); u.digital-=amt; u.paper+=amt; localStorage.setItem(currentUser,JSON.stringify(u)); updateBalances(); log(`${currentUser} transferred digital→paper`);}
+function paperToDigital(){ let amt=parseFloat(transferAmount.value); let u=JSON.parse(localStorage.getItem(currentUser)); if(u.paper<amt) return alert("Not enough"); u.paper-=amt; u.digital+=amt; localStorage.setItem(currentUser,JSON.stringify(u)); updateBalances(); log(`${currentUser} transferred paper→digital`);}
 
-function paperToDigital(){
-let amt=parseFloat(transferAmount.value);
-let u=JSON.parse(localStorage.getItem(currentUser));
-if(u.paper<amt) return alert("Not enough");
-u.paper-=amt; u.digital+=amt;
-localStorage.setItem(currentUser,JSON.stringify(u));
-updateBalances();
-log(`${currentUser} transferred paper→digital`);
-}
+// CONVERT
+function convertToKD(){ let amt=parseFloat(convertAmount.value); let type=convertType.value; let u=JSON.parse(localStorage.getItem(currentUser)); if(u[type]<amt) return alert("Not enough"); u[type]-=amt; u.kd+=amt; localStorage.setItem(currentUser,JSON.stringify(u)); updateBalances(); log(`${currentUser} converted to KD`);}
 
-function convertToKD(){
-let amt=parseFloat(convertAmount.value);
-let type=convertType.value;
-let u=JSON.parse(localStorage.getItem(currentUser));
-if(u[type]<amt) return alert("Not enough");
-u[type]-=amt; u.kd+=amt;
-localStorage.setItem(currentUser,JSON.stringify(u));
-updateBalances();
-log(`${currentUser} converted to KD`);
-}
+// CHAT
+function sendMessage(){ let chat=JSON.parse(localStorage.getItem("chat")); chat.push(`${currentUser}: ${chatInput.value}`); localStorage.setItem("chat",JSON.stringify(chat)); chatInput.value=""; loadChat();}
+function loadChat(){ let chat=JSON.parse(localStorage.getItem("chat")); chatBox.innerHTML=chat.join("<br>");}
 
-function sendMessage(){
-let chat=JSON.parse(localStorage.getItem("chat"));
-chat.push(`${currentUser}: ${chatInput.value}`);
-localStorage.setItem("chat",JSON.stringify(chat));
-chatInput.value="";
-loadChat();
-}
+// ADMIN CHAT/MARKETPLACE/COADMIN
+function loadAdminChat(){ let chat=JSON.parse(localStorage.getItem("chat")); adminChatBox.innerHTML=chat.map((m,i)=>`<div>${i}: ${m}</div>`).join("<br>");}
+function loadAdminMarket(){ let market=JSON.parse(localStorage.getItem("market")); adminMarketList.innerHTML=market.map((item,i)=>`<div>${i}: ${item.name} by ${item.seller} - ${item.price} CX</div>`).join("<br>");}
+function deleteSelectedMessage(){ let idx=prompt("Enter message index to delete:"); if(idx===null) return; let chat=JSON.parse(localStorage.getItem("chat")); chat.splice(parseInt(idx),1); localStorage.setItem("chat",JSON.stringify(chat)); loadAdminChat();}
+function deleteSelectedItem(){ let idx=prompt("Enter item index to delete:"); if(idx===null) return; let market=JSON.parse(localStorage.getItem("market")); market.splice(parseInt(idx),1); localStorage.setItem("market",JSON.stringify(market)); loadAdminMarket();}
+function adminSendMessage(){ let chat=JSON.parse(localStorage.getItem("chat")); chat.push(`Admin: ${adminChatInput.value}`); localStorage.setItem("chat",JSON.stringify(chat)); adminChatInput.value=""; loadAdminChat();}
 
-function loadChat(){
-let chat=JSON.parse(localStorage.getItem("chat"));
-chatBox.innerHTML=chat.join("<br>");
-}
+// LOGS
+function log(msg){ let logs=JSON.parse(localStorage.getItem("logs")); logs.push(msg); localStorage.setItem("logs",JSON.stringify(logs)); loadLogs();}
+function loadLogs(){ let logs=JSON.parse(localStorage.getItem("logs")); logBox.innerHTML=logs.join("<br>"); }
+function clearLogs(){ localStorage.setItem("logs",JSON.stringify([])); loadLogs();}
 
-function log(msg){
-let logs=JSON.parse(localStorage.getItem("logs"));
-logs.push(msg);
-localStorage.setItem("logs",JSON.stringify(logs));
-}
+// COADMIN
+function makeCoAdmin(){ let u=coAdminSelect.value; if(!u) return alert("Select user"); let user=JSON.parse(localStorage.getItem(u)); user.isCoAdmin=true; localStorage.setItem(u,JSON.stringify(user)); alert(u+" is now Co-Admin");}
+function loadCoAdminSelect(){ coAdminSelect.innerHTML=""; for(let i=0;i<localStorage.length;i++){ let key=localStorage.key(i); if(key!=="admin"&&key!=="market"&&key!=="chat"&&key!=="logs"){ coAdminSelect.innerHTML+=`<option>${key}</option>`;}}}
 
-function loadLogs(){
-let logs=JSON.parse(localStorage.getItem("logs"));
-logBox.innerHTML=logs.join("<br>");
-}
-
-function clearLogs(){
-localStorage.setItem("logs",JSON.stringify([]));
-loadLogs();
-}
-
+// LOGOUT
 function logout(){ location.reload(); }
 </script>
 </body>
